@@ -15,7 +15,14 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t devops-cicd-app:${BUILD_NUMBER} .'
+                sh '''
+                    docker build \
+                        -t devops-cicd-app:${BUILD_NUMBER} \
+                        -t woharami/devops-cicd-project:${BUILD_NUMBER} .
+                    
+                    docker tag woharami/devops-cicd-project:${BUILD_NUMBER} \
+                        woharami/devops-cicd-project:latest
+                '''
             }
         }
 
@@ -23,6 +30,26 @@ pipeline {
             steps {
                 sh 'docker image inspect devops-cicd-app:${BUILD_NUMBER}'
                 echo 'Docker image build test passed'
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-credentials',
+                    usernameVariable: 'DOCKERHUB_USERNAME',
+                    passwordVariable: 'DOCKERHUB_PASSWORD'
+                )]) {
+                    sh '''
+                        echo "$DOCKERHUB_PASSWORD" | docker login \
+                            -u "$DOCKERHUB_USERNAME" --password-stdin
+
+                        docker push woharami/devops-cicd-project:${BUILD_NUMBER}
+                        docker push woharami/devops-cicd-project:latest
+
+                        docker logout
+                    '''
+                }
             }
         }
 
