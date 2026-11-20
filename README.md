@@ -75,3 +75,5 @@ devops-cicd-project/
 
 Docker-based local deployment completed.
 Jenkins and AWS EC2 integration are pending.
+
+Webhook automatic trigger test
