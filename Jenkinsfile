@@ -1,3 +1,4 @@
+
 pipeline {
     agent any
 
@@ -14,13 +15,13 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t devops-cicd-app:v3 .'
+                sh 'docker build -t devops-cicd-app:${BUILD_NUMBER} .'
             }
         }
 
         stage('Test Application') {
             steps {
-                sh 'docker image inspect devops-cicd-app:v3'
+                sh 'docker image inspect devops-cicd-app:${BUILD_NUMBER}'
                 echo 'Docker image build test passed'
             }
         }
@@ -30,7 +31,7 @@ pipeline {
                 sh '''
                     docker stop devops-app-v3 || true
                     docker rm devops-app-v3 || true
-                    docker run -d --name devops-app-v3 -p 8082:80 devops-cicd-app:v3
+                    docker run -d --name devops-app-v3 -p 8082:80 devops-cicd-app:${BUILD_NUMBER}
                 '''
             }
         }
