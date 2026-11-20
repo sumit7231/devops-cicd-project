@@ -16,7 +16,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                    docker build \
+                    docker build --platform linux/amd64 \
                         -t devops-cicd-app:${BUILD_NUMBER} \
                         -t woharami/devops-cicd-project:${BUILD_NUMBER} .
                     
