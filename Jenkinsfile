@@ -29,9 +29,16 @@ pipeline {
         stage('Deploy Container') {
             steps {
                 sh '''
-                    docker stop devops-app-v3 || true
-                    docker rm devops-app-v3 || true
-                    docker run -d --name devops-app-v3 -p 8082:80 devops-cicd-app:${BUILD_NUMBER}
+                    OLD_CONTAINERS=$(docker ps -aq --filter "name=^devops-app-")
+
+                    if [ -n "$OLD_CONTAINERS" ]; then
+                        docker rm -f $OLD_CONTAINERS
+                    fi
+
+                    docker run -d \
+                        --name devops-app-${BUILD_NUMBER} \
+                        -p 8082:80 \
+                        devops-cicd-app:${BUILD_NUMBER}
                 '''
             }
         }
