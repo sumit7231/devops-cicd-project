@@ -4,25 +4,20 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo 'Checking out source code from GitHub'
+                echo 'Source code checked out from GitHub'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                echo 'Building Docker image'
+                sh 'docker build -t devops-cicd-app:v3 .'
             }
         }
 
-        stage('Test') {
+        stage('Test Application') {
             steps {
-                echo 'Testing application'
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                echo 'Deployment stage'
+                sh 'docker image inspect devops-cicd-app:v3'
+                echo 'Docker image build test passed'
             }
         }
     }
