@@ -19,7 +19,7 @@ pipeline {
                     docker build --platform linux/amd64 \
                         -t devops-cicd-app:${BUILD_NUMBER} \
                         -t woharami/devops-cicd-project:${BUILD_NUMBER} .
-                    
+
                     docker tag woharami/devops-cicd-project:${BUILD_NUMBER} \
                         woharami/devops-cicd-project:latest
                 '''
@@ -86,6 +86,53 @@ pipeline {
                     echo "Application Health Check Failed"
                     exit 1
                 '''
+            }
+        }
+
+        stage('Deploy to AWS EC2') {
+            steps {
+                withCredentials([sshUserPrivateKey(
+                    credentialsId: 'ec2-ssh-key',
+                    keyFileVariable: 'SSH_KEY',
+                    usernameVariable: 'SSH_USER'
+                )]) {
+                    sh '''
+                        ssh -i "$SSH_KEY" \
+                            -o StrictHostKeyChecking=no \
+                            "$SSH_USER@3.110.103.170" <<EOF
+
+                        set -e
+
+                        echo "Connected to AWS EC2"
+
+                        sudo docker pull --platform linux/amd64 \
+                            woharami/devops-cicd-project:${BUILD_NUMBER}
+
+                        sudo docker rm -f devops-cicd-app || true
+
+                        sudo docker run -d \
+                            --name devops-cicd-app \
+                            --restart unless-stopped \
+                            -p 80:80 \
+                            woharami/devops-cicd-project:${BUILD_NUMBER}
+
+                        echo "Checking EC2 application health..."
+
+                        for i in 1 2 3 4 5; do
+                            if curl -fsS http://localhost/ > /dev/null; then
+                                echo "EC2 Deployment Successful!"
+                                exit 0
+                            fi
+
+                            echo "Waiting for application..."
+                            sleep 3
+                        done
+
+                        echo "EC2 Health Check Failed"
+                        exit 1
+                        EOF
+                    '''
+                }
             }
         }
     }
