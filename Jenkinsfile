@@ -7,6 +7,7 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 echo 'Source code checked out from GitHub'
@@ -28,8 +29,10 @@ pipeline {
 
         stage('Test Docker Image') {
             steps {
-                sh 'docker image inspect devops-cicd-app:${BUILD_NUMBER}'
-                echo 'Docker image build test passed'
+                sh '''
+                    docker image inspect devops-cicd-app:${BUILD_NUMBER}
+                    echo "Docker image build test passed"
+                '''
             }
         }
 
@@ -70,20 +73,20 @@ pipeline {
             }
         }
 
-        stage('Health Check') {
+        stage('Local Health Check') {
             steps {
                 sh '''
                     for i in 1 2 3 4 5; do
-                        if curl -fsS http://localhost:8082 > /dev/null; then
-                            echo "Application Health Check Passed"
+                        if curl -fsS http://localhost:8082/ > /dev/null; then
+                            echo "Local Application Health Check Passed"
                             exit 0
                         fi
 
-                        echo "Waiting for application..."
+                        echo "Waiting for local application..."
                         sleep 3
                     done
 
-                    echo "Application Health Check Failed"
+                    echo "Local Health Check Failed"
                     exit 1
                 '''
             }
@@ -99,41 +102,64 @@ pipeline {
                     sh '''
                         ssh -i "$SSH_KEY" \
                             -o StrictHostKeyChecking=no \
-                            "$SSH_USER@3.110.103.170" <<EOF
+                            "$SSH_USER@3.110.103.170" \
+                            "BUILD_NUMBER=${BUILD_NUMBER} bash -s" <<'REMOTE'
 
                         set -e
 
+                        IMAGE="woharami/devops-cicd-project:${BUILD_NUMBER}"
+
                         echo "Connected to AWS EC2"
+                        echo "Pulling Docker image: $IMAGE"
 
-                        sudo docker pull --platform linux/amd64 \
-                            woharami/devops-cicd-project:${BUILD_NUMBER}
+                        sudo docker pull --platform linux/amd64 "$IMAGE"
 
+                        echo "Removing old EC2 container..."
                         sudo docker rm -f devops-cicd-app || true
+
+                        echo "Starting new EC2 container..."
 
                         sudo docker run -d \
                             --name devops-cicd-app \
                             --restart unless-stopped \
                             -p 80:80 \
-                            woharami/devops-cicd-project:${BUILD_NUMBER}
+                            "$IMAGE"
 
-                        echo "Checking EC2 application health..."
+                        echo "Running EC2 health check..."
+
+                        HEALTHY=0
 
                         for i in 1 2 3 4 5; do
-                            if curl -fsS http://localhost/ > /dev/null; then
-                                echo "EC2 Deployment Successful!"
-                                exit 0
+                            if curl -fsS http://127.0.0.1/ > /dev/null; then
+                                HEALTHY=1
+                                break
                             fi
 
-                            echo "Waiting for application..."
+                            echo "Waiting for NGINX..."
                             sleep 3
                         done
 
-                        echo "EC2 Health Check Failed"
-                        exit 1
-                        EOF
+                        if [ "$HEALTHY" -eq 1 ]; then
+                            echo "EC2 Deployment Successful!"
+                        else
+                            echo "EC2 Health Check Failed"
+                            exit 1
+                        fi
+
+                        REMOTE
                     '''
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            echo 'CI/CD Pipeline Completed Successfully!'
+        }
+
+        failure {
+            echo 'CI/CD Pipeline Failed. Check Console Output.'
         }
     }
 }
