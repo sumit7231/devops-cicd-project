@@ -100,54 +100,54 @@ pipeline {
                     usernameVariable: 'SSH_USER'
                 )]) {
                     sh '''
-                        ssh -i "$SSH_KEY" \
-                            -o StrictHostKeyChecking=no \
-                            "$SSH_USER@3.110.103.170" \
-                            "BUILD_NUMBER=${BUILD_NUMBER} bash -s" <<'REMOTE'
+ssh -i "$SSH_KEY" \
+    -o StrictHostKeyChecking=no \
+    "$SSH_USER@3.110.103.170" \
+    "BUILD_NUMBER=${BUILD_NUMBER} bash -s" <<'REMOTE'
 
-                        set -e
+set -e
 
-                        IMAGE="woharami/devops-cicd-project:${BUILD_NUMBER}"
+IMAGE="woharami/devops-cicd-project:${BUILD_NUMBER}"
 
-                        echo "Connected to AWS EC2"
-                        echo "Pulling Docker image: $IMAGE"
+echo "Connected to AWS EC2"
+echo "Pulling Docker image: $IMAGE"
 
-                        sudo docker pull --platform linux/amd64 "$IMAGE"
+sudo docker pull --platform linux/amd64 "$IMAGE"
 
-                        echo "Removing old EC2 container..."
-                        sudo docker rm -f devops-cicd-app || true
+echo "Removing old EC2 container..."
+sudo docker rm -f devops-cicd-app || true
 
-                        echo "Starting new EC2 container..."
+echo "Starting new EC2 container..."
 
-                        sudo docker run -d \
-                            --name devops-cicd-app \
-                            --restart unless-stopped \
-                            -p 80:80 \
-                            "$IMAGE"
+sudo docker run -d \
+    --name devops-cicd-app \
+    --restart unless-stopped \
+    -p 80:80 \
+    "$IMAGE"
 
-                        echo "Running EC2 health check..."
+echo "Running EC2 health check..."
 
-                        HEALTHY=0
+HEALTHY=0
 
-                        for i in 1 2 3 4 5; do
-                            if curl -fsS http://127.0.0.1/ > /dev/null; then
-                                HEALTHY=1
-                                break
-                            fi
+for i in 1 2 3 4 5; do
+    if curl -fsS http://127.0.0.1/ > /dev/null; then
+        HEALTHY=1
+        break
+    fi
 
-                            echo "Waiting for NGINX..."
-                            sleep 3
-                        done
+    echo "Waiting for NGINX..."
+    sleep 3
+done
 
-                        if [ "$HEALTHY" -eq 1 ]; then
-                            echo "EC2 Deployment Successful!"
-                        else
-                            echo "EC2 Health Check Failed"
-                            exit 1
-                        fi
+if [ "$HEALTHY" -eq 1 ]; then
+    echo "EC2 Deployment Successful!"
+else
+    echo "EC2 Health Check Failed"
+    exit 1
+fi
 
-                        REMOTE
-                    '''
+REMOTE
+'''
                 }
             }
         }
